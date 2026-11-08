@@ -23,6 +23,10 @@ function createAuth(): FirebaseAuth.Auth {
   // getReactNativePersistence only exists in the react-native build of firebase/auth,
   // and the public typings don't declare it, hence the cast.
   const getReactNativePersistence = (FirebaseAuth as any).getReactNativePersistence;
+  if (typeof getReactNativePersistence !== 'function') {
+    console.warn('getReactNativePersistence missing; login will not survive app restarts.');
+    return FirebaseAuth.getAuth(app);
+  }
   return FirebaseAuth.initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
   });
