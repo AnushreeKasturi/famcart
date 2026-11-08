@@ -103,6 +103,13 @@ export async function joinCircle(uid: string, rawCode: string) {
   const invite = await getDoc(inviteRef(code));
   if (!invite.exists()) throw new Error('No circle found with that code. Check it and try again.');
   const circleId = invite.data().circleId as string;
+  // Already a member? The join rule only allows adding yourself once.
+  try {
+    const existing = await getDoc(circleRef(circleId));
+    if (existing.exists() && (existing.data().memberIds as string[]).includes(uid)) return circleId;
+  } catch {
+    // permission-denied means we're not a member yet, which is the normal case.
+  }
   await updateDoc(circleRef(circleId), { memberIds: arrayUnion(uid) });
   return circleId;
 }
@@ -239,7 +246,9 @@ function useLive<T>(
     setState((s) => ({ ...s, loading: true, error: null }));
     return subscribe(
       (data) => setState({ data, loading: false, error: null }),
-      (e) => setState((s) => ({ ...s, loading: false, error: e.message })),
+      // Firestore listener errors are terminal (e.g. permission-denied after being
+      // removed from a circle), so drop the stale data.
+      (e) => setState({ data: initial, loading: false, error: e.message }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
